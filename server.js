@@ -7,36 +7,50 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
-    cors: { origin: "*" } // Разрешаем доступ с любых источников для теста
+    cors: { origin: "*" }
 });
 
+// ВАЖНО ДЛЯ RENDER: Используем порт от хостинга или 3000 локально
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: '50mb' })); // Лимит для голосовых
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- ХРАНИЛИЩЕ ДАННЫХ (В ПАМЯТИ) ---
-// При перезапуске сервера данные сбрасываются!
+// Внимание: При перезагрузке сервера (Deploy) данные стираются
 const users = [];
 const messages = [];
 
 // --- API ROUTES ---
+
+// Регистрация
 app.post('/api/register', async (req, res) => {
     try {
         const { username, email, password } = req.body;
         if (!username || !email || !password) return res.status(400).json({ error: 'Заполните все поля' });
         
+        // Проверка на дубликаты
         const existing = users.find(u => u.username === username);
-        if (existing) return res.status(400).json({ error: 'Пользователь занят' });
+        if (existing) return res.status(400).json({ error: 'Пользователь уже существует' });
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        users.push({ id: Date.now().toString(), username, email, password: hashedPassword });
         
-        console.log(`✅ Пользователь зарегистрирован: ${username}`);
+        users.push({ 
+            id: Date.now().toString(), 
+            username, 
+            email, 
+            password: hashedPassword 
+        });
+        
+        console.log(`✅ Новый пользователь: ${username}`);
         res.status(201).json({ message: 'OK' });
-    } catch (e) { res.status(500).json({ error: 'Ошибка' }); }
+    } catch (e) { 
+        console.error(e);
+        res.status(500).json({ error: 'Ошибка сервера' }); 
+    }
 });
 
+// Вход
 app.post('/api/login', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -46,14 +60,27 @@ app.post('/api/login', async (req, res) => {
             return res.status(400).json({ error: 'Неверный логин или пароль' });
         }
         res.json({ username: user.username });
-    } catch (e) { res.status(500).json({ error: 'Ошибка' }); }
+    } catch (e) { res.status(500).json({ error: 'Ошибка сервера' }); }
 });
 
+// Поиск пользователей (ОБНОВЛЕНО)
 app.get('/api/users', (req, res) => {
-    // Возвращаем всех кроме себя (фильтрация будет на клиенте для простоты)
-    res.json(users.map(u => ({ username: u.username })));
+    const query = req.query.q ? req.query.q.toLowerCase() : '';
+    
+    // Если поиск пустой — возвращаем пустой список (чтобы скрыть всех пользователей)
+    if (!query) {
+        return res.json([]); 
+    }
+
+    // Ищем совпадения по имени
+    const filteredUsers = users
+        .filter(u => u.username.toLowerCase().includes(query))
+        .map(u => ({ username: u.username })); // Отправляем только имена, без паролей
+        
+    res.json(filteredUsers);
 });
 
+// История сообщений
 app.get('/api/messages/:user1/:user2', (req, res) => {
     const { user1, user2 } = req.params;
     const history = messages.filter(msg => 
@@ -63,22 +90,23 @@ app.get('/api/messages/:user1/:user2', (req, res) => {
     res.json(history);
 });
 
-// --- SOCKET.IO ---
+// --- SOCKET.IO (REAL-TIME) ---
 let onlineUsers = {}; // { username: socketId }
 
 io.on('connection', (socket) => {
-    // 1. Обработка входа пользователя в сеть
+    // 1. Вход в сеть
     socket.on('join', (username) => {
         onlineUsers[username] = socket.id;
         socket.username = username;
-        console.log(`🟢 ${username} подключился (ID: ${socket.id})`);
-        io.emit('user_status', { username, status: 'online' });
+        console.log(`🟢 Online: ${username}`);
     });
 
     // 2. Личные сообщения
     socket.on('private_message', (data) => {
         const { sender, receiver, content, type } = data;
         const msg = { sender, receiver, content, type, timestamp: new Date() };
+        
+        // Сохраняем в память
         messages.push(msg);
 
         // Отправляем получателю
@@ -86,7 +114,8 @@ io.on('connection', (socket) => {
         if (receiverSocketId) {
             io.to(receiverSocketId).emit('receive_message', msg);
         }
-        // Отправляем себе обратно (чтобы убедиться, что сервер принял)
+        
+        // Отправляем подтверждение отправителю
         socket.emit('message_sent', msg);
     });
 
@@ -94,13 +123,10 @@ io.on('connection', (socket) => {
     socket.on('call_user', (data) => {
         const receiverSocketId = onlineUsers[data.userToCall];
         if (receiverSocketId) {
-            console.log(`📞 Звонок от ${data.from} к ${data.userToCall}`);
             io.to(receiverSocketId).emit('call_incoming', { 
                 signal: data.signalData, 
                 from: data.from 
             });
-        } else {
-            console.log(`🚫 Не удалось дозвониться: ${data.userToCall} не в сети`);
         }
     });
 
@@ -121,7 +147,6 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         if (socket.username) {
             delete onlineUsers[socket.username];
-            console.log(`🔴 ${socket.username} отключился`);
         }
     });
 });
