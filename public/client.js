@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("Client JS Loaded");
+    console.log("Client JS Loaded (Search Mode)");
 
     // --- ПЕРЕМЕННЫЕ ---
     const socket = io();
@@ -23,15 +23,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const emailInput = document.getElementById('email-input');
     const usernameInput = document.getElementById('username-input');
     const passwordInput = document.getElementById('password-input');
+    const searchInput = document.getElementById('search-input');
+    const chatList = document.getElementById('chat-list');
     
     // --- ИНИЦИАЛИЗАЦИЯ ---
     
     // Проверка сохраненной сессии
     const savedUser = localStorage.getItem('windy_user');
     if (savedUser) {
-        // Если сервер перезагрузился, пользователи стерлись из памяти.
-        // Поэтому просто "верим" локальному хранилищу, но сервер может не найти юзера.
-        // Для прототипа: просто заходим.
         currentUser = savedUser;
         initApp();
     }
@@ -96,14 +95,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // 4. Отправка сообщения
     document.getElementById('send-btn').addEventListener('click', sendTextMessage);
     
-    // 5. Поиск
-    document.getElementById('search-input').addEventListener('input', (e) => loadUsers(e.target.value));
+    // 5. Поиск (ИСПРАВЛЕНО: теперь поиск добавляет людей в список)
+    searchInput.addEventListener('input', (e) => searchUsers(e.target.value));
 
-    // 6. Микрофон (Запись голоса)
+    // 6. Микрофон
     const micBtn = document.getElementById('mic-btn');
     micBtn.addEventListener('mousedown', startRecording);
     micBtn.addEventListener('mouseup', stopRecording);
-    // Для мобильных
     micBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startRecording(); });
     micBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopRecording(); });
 
@@ -121,32 +119,42 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('current-username-display').innerText = currentUser;
         
         socket.emit('join', currentUser);
-        loadUsers();
-        setInterval(() => loadUsers(document.getElementById('search-input').value), 3000);
+        
+        // ВАЖНО: Мы больше не загружаем всех пользователей сразу!
+        // Список чатов будет пуст, пока мы не найдем кого-то или нам не напишут.
     }
 
-    async function loadUsers(query = '') {
-        try {
-            const res = await fetch('/api/users');
-            let users = await res.json();
-            
-            // Фильтрация на клиенте (просто для прототипа)
-            if (query) {
-                users = users.filter(u => u.username.toLowerCase().includes(query.toLowerCase()));
-            }
+    // Новая функция добавления в боковую панель
+    function addUserToSidebar(username) {
+        if (!username || username === currentUser) return;
 
-            const list = document.getElementById('chat-list');
-            list.innerHTML = '';
+        // Проверяем, есть ли уже этот человек в списке (чтобы не дублировать)
+        const existingItems = chatList.querySelectorAll('.chat-name');
+        for (let item of existingItems) {
+            if (item.innerText === username) return; // Уже есть, выходим
+        }
+
+        // Создаем элемент
+        const div = document.createElement('div');
+        div.className = 'chat-item';
+        div.innerHTML = `<div class="avatar"></div><div class="chat-name">${username}</div>`;
+        div.addEventListener('click', () => openChat(username));
+        chatList.appendChild(div);
+    }
+
+    // Функция поиска
+    async function searchUsers(query) {
+        if (!query) return; // Если поиск пуст, ничего не делаем
+
+        try {
+            const res = await fetch(`/api/users?q=${query}`);
+            const users = await res.json();
             
+            // Добавляем найденных в сайдбар
             users.forEach(user => {
-                if (user.username === currentUser) return;
-                const div = document.createElement('div');
-                div.className = 'chat-item';
-                div.innerHTML = `<div class="avatar"></div><div class="chat-name">${user.username}</div>`;
-                div.addEventListener('click', () => openChat(user.username));
-                list.appendChild(div);
+                addUserToSidebar(user.username);
             });
-        } catch(e) { console.log("Ошибка загрузки пользователей"); }
+        } catch(e) { console.log("Ошибка поиска"); }
     }
 
     async function openChat(username) {
@@ -186,6 +194,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const text = input.value;
         if (!text) return;
 
+        // Если это первое сообщение, добавляем собеседника в сайдбар (на всякий случай)
+        addUserToSidebar(currentChatUser);
+
         socket.emit('private_message', {
             sender: currentUser,
             receiver: currentChatUser,
@@ -201,6 +212,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     socket.on('receive_message', (msg) => {
+        // ВАЖНО: Если пришло сообщение, добавляем отправителя в список контактов
+        if (msg.receiver === currentUser) {
+            addUserToSidebar(msg.sender);
+        }
+
         if (msg.sender === currentChatUser || msg.sender === currentUser) {
             appendMessage(msg);
         }
@@ -229,6 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const reader = new FileReader();
                 reader.readAsDataURL(blob);
                 reader.onloadend = () => {
+                    addUserToSidebar(currentChatUser); // Добавляем в список при отправке
                     socket.emit('private_message', {
                         sender: currentUser,
                         receiver: currentChatUser,
@@ -254,9 +271,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- ЗВОНКИ ---
+    // --- ЗВОНКИ (WebRTC) ---
     async function startCall(videoEnabled) {
         if (!currentChatUser) return;
+        addUserToSidebar(currentChatUser); // Добавляем в список при звонке
         document.getElementById('call-modal').classList.remove('hidden');
 
         try {
@@ -295,10 +313,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     socket.on('call_incoming', async (data) => {
+        // Если нам звонят, сразу добавляем звонящего в список
+        addUserToSidebar(data.from);
+
         const accept = confirm(`Звонок от ${data.from}. Ответить?`);
         if (accept) {
             document.getElementById('call-modal').classList.remove('hidden');
-            currentChatUser = data.from; // Переключаемся на звонящего
+            currentChatUser = data.from; 
             
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
