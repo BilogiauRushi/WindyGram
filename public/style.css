@@ -1,0 +1,113 @@
+/* Переменные на основе запроса */
+:root {
+    --bg-light: #a0e0dd;
+    --bg-dark: #386c8b;
+    --text-color: #386c8b;
+    --white: #ffffff;
+    --msg-sent: #386c8b;
+    --msg-received: #ffffff;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Roboto', 'Helvetica Neue', sans-serif; }
+
+body { background-color: var(--bg-dark); height: 100vh; overflow: hidden; }
+
+/* Авторизация */
+#auth-screen {
+    display: flex; justify-content: center; align-items: center; height: 100vh;
+    background: var(--bg-light);
+}
+.auth-box {
+    background: var(--white); padding: 2rem; border-radius: 10px; text-align: center; width: 300px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+.auth-box input { width: 100%; margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+.auth-box button {
+    width: 100%; padding: 10px; background: var(--bg-dark); color: white; border: none; border-radius: 5px; cursor: pointer;
+}
+#toggle-auth { font-size: 0.8rem; margin-top: 10px; color: var(--text-color); cursor: pointer; text-decoration: underline; }
+
+/* Основной лейаут */
+#app-container {
+    display: flex; height: 100vh; width: 100vw;
+}
+
+/* Сайдбар */
+.sidebar {
+    width: 300px; background-color: var(--bg-dark); color: var(--white);
+    display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.1);
+}
+.sidebar-header { padding: 20px; background: rgba(0,0,0,0.1); }
+.user-profile { display: flex; align-items: center; margin-bottom: 15px; }
+.avatar {
+    width: 40px; height: 40px; border-radius: 50%; background: var(--white); margin-right: 10px;
+}
+.search-box input {
+    width: 100%; padding: 8px; border-radius: 20px; border: none; outline: none;
+}
+
+.chat-list { flex: 1; overflow-y: auto; }
+.chat-item {
+    display: flex; align-items: center; padding: 15px 20px; cursor: pointer; transition: 0.2s;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.chat-item:hover { background: rgba(255,255,255,0.1); }
+.chat-item .chat-name { font-weight: bold; font-size: 1.1rem; }
+
+/* Основной чат */
+.main-chat {
+    flex: 1; background-color: var(--bg-light); display: flex; flex-direction: column;
+}
+
+.chat-header {
+    height: 60px; background: var(--bg-dark); color: white; display: flex; align-items: center; justify-content: space-between; padding: 0 20px;
+}
+.chat-actions button {
+    background: none; border: none; color: white; font-size: 1.2rem; margin-left: 15px; cursor: pointer;
+}
+
+.messages-area {
+    flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
+}
+.empty-state { text-align: center; margin-top: 20%; color: var(--text-color); opacity: 0.6; }
+
+.message {
+    max-width: 60%; padding: 10px 15px; border-radius: 10px; font-size: 0.95rem; word-wrap: break-word;
+}
+.message.sent {
+    align-self: flex-end; background-color: var(--msg-sent); color: white; border-bottom-right-radius: 0;
+}
+.message.received {
+    align-self: flex-start; background-color: var(--msg-received); color: var(--text-color); border-bottom-left-radius: 0;
+}
+.message audio { width: 200px; height: 30px; }
+
+/* Поле ввода */
+.input-area {
+    height: 60px; background: #2f5b75; display: flex; align-items: center; padding: 0 20px;
+}
+#message-input {
+    flex: 1; padding: 10px; border-radius: 20px; border: none; margin: 0 10px;
+}
+.input-area button {
+    background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer; width: 40px;
+}
+.input-area button:active { transform: scale(0.9); }
+
+/* Модальное окно звонка */
+#call-modal {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8); z-index: 1000;
+    display: flex; justify-content: center; align-items: center;
+}
+.hidden { display: none !important; }
+.call-content {
+    background: white; padding: 20px; border-radius: 10px; width: 80%; max-width: 800px; text-align: center;
+}
+.video-container {
+    display: flex; gap: 10px; justify-content: center; margin: 20px 0; flex-wrap: wrap;
+}
+video {
+    width: 45%; background: black; border-radius: 5px;
+}
+.hangup-btn { background: red; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }

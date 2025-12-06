@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WindyGram</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+
+    <!-- Экран авторизации -->
+    <div id="auth-screen">
+        <div class="auth-box">
+            <h2 id="auth-title">Вход</h2>
+            <input type="text" id="username-input" placeholder="Имя пользователя">
+            <input type="email" id="email-input" placeholder="Email" style="display:none;">
+            <input type="password" id="password-input" placeholder="Пароль">
+            
+            <button id="auth-btn">Войти</button>
+            <p id="toggle-auth">Нет аккаунта? Зарегистрироваться</p>
+        </div>
+    </div>
+
+    <!-- Основной интерфейс -->
+    <div id="app-container" style="display:none;">
+        <!-- Боковая панель -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="user-profile">
+                    <div class="avatar"></div>
+                    <span id="current-username-display">USER</span>
+                    <button id="logout-btn" title="Выйти" style="margin-left:auto; background:none; border:none; color:white; cursor:pointer;"><i class="fas fa-sign-out-alt"></i></button>
+                </div>
+                <div class="search-box">
+                    <input type="text" id="search-input" placeholder="Поиск...">
+                </div>
+            </div>
+            <div class="chat-list" id="chat-list"></div>
+        </div>
+
+        <!-- Чат -->
+        <div class="main-chat">
+            <div class="chat-header" id="chat-header" style="display:none;">
+                <span id="chat-with-name">Чат</span>
+                <div class="chat-actions">
+                    <button id="call-audio-btn"><i class="fas fa-phone"></i></button>
+                    <button id="call-video-btn"><i class="fas fa-video"></i></button>
+                </div>
+            </div>
+
+            <div class="messages-area" id="messages-area">
+                <div class="empty-state">Выберите чат слева</div>
+            </div>
+
+            <div class="input-area" id="input-area" style="display:none;">
+                <button id="mic-btn"><i class="fas fa-microphone"></i></button>
+                <input type="text" id="message-input" placeholder="Сообщение...">
+                <button id="send-btn"><i class="fas fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Звонок -->
+    <div id="call-modal" class="hidden">
+        <div class="call-content">
+            <h3>Звонок...</h3>
+            <div class="video-container">
+                <video id="remote-video" autoplay playsinline></video>
+                <video id="local-video" autoplay playsinline muted></video>
+            </div>
+            <div class="call-controls">
+                <button id="hangup-btn" class="hangup-btn">Завершить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Скрипты загружаем в конце body -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="client.js"></script>
+</body>
+</html>
